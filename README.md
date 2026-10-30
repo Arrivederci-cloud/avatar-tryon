@@ -51,6 +51,25 @@ PYTHONPATH=src python -m avatar_tryon.cli --image photo.jpg --height 170 --mock
 
 输出 `<out>/result.json`，包含每一阶段的状态、产物路径与告警。
 
+### 先体检：一条命令看清哪一档能跑
+
+```bash
+PYTHONPATH=src python scripts/doctor.py          # 只读、不产生费用
+PYTHONPATH=src python scripts/doctor.py --offline # 不联网，只看本地
+```
+
+它逐条报「现状 / 影响哪一档 / 怎么补」：Python 版本、显卡、依赖、权重、密钥，
+以及试穿与纹理编辑模型**是否对当前账号开通**。项目里最费时间的坑都在环境而非代码，
+所以先把这张表跑出来再动手。
+
+| 档位 | 现状 |
+|---|---|
+| `mock` / `proxy`（含 `--edit-backend api`） | 开箱可跑 |
+| 试穿（aitryon / FASHN） | 需账号开通「AI试衣」或 `FASHN_API_KEY` |
+| `real`（LHM 重建） | 需独立的 Python 3.12 环境 + CUDA torch + 18.8 GB 权重 |
+
+原因、实测数字与复核方法见 **[docs/environment-gates.md](docs/environment-gates.md)**。
+
 ### 三档引擎
 
 `--engine` 决定每一环节用哪套实现，**同一套接口，可整体替换**：
