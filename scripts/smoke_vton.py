@@ -1,4 +1,4 @@
-"""试穿冒烟验证：一条命令判断「本机能不能真跑出换装图」。
+﻿"""试穿冒烟验证：一条命令判断「本机能不能真跑出换装图」。
 
 它做四件事：
     1. 检查前置（权重 / 密钥），缺什么直接说清楚；
@@ -36,6 +36,14 @@ WEIGHTS = ROOT / "weights"
 MIN_CHANGE = 2.0
 
 
+def _rel(path: Path) -> str:
+    """尽量显示仓库内相对路径；外部路径或相对路径则原样返回。"""
+    try:
+        return str(path.resolve().relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 def image_diff(a: Path, b: Path) -> float:
     """平均绝对像素差（0-255）。只用于判断「有没有变化」，不作为质量指标。"""
     from PIL import Image, ImageChops
@@ -64,8 +72,8 @@ def main() -> int:
 
     model = FashnVton(WEIGHTS, backend=args.backend)
     print(f"后端 {args.backend}  category {args.category}")
-    print(f"  人物 {args.person.relative_to(ROOT)}")
-    print(f"  服装 {args.garment.relative_to(ROOT)}")
+    print(f"  人物 {_rel(args.person)}")
+    print(f"  服装 {_rel(args.garment)}")
 
     t0 = time.monotonic()
     try:
@@ -91,7 +99,7 @@ def main() -> int:
         size = img.size
     change = image_diff(args.person, out)
 
-    print(f"\n耗时 {elapsed:.1f}s  产出 {out.relative_to(ROOT)}  {size[0]}x{size[1]}")
+    print(f"\n耗时 {elapsed:.1f}s  产出 {_rel(out)}  {size[0]}x{size[1]}")
     print(f"与原图平均差 {change:.1f}/255（阈值 {MIN_CHANGE}）")
     if change < MIN_CHANGE:
         print("差异过小：衣服没换上去，属于假成功。", file=sys.stderr)

@@ -189,11 +189,16 @@ class FashnVton(TryOnModel):
             raise ModelNotWired(
                 f"未找到本地权重：{weights / 'model.safetensors'}\n"
                 f"上游仓库：{self.upstream}\n"
-                "步骤：\n"
+                "步骤（实测有效，见 docs/environment-gates.md）：\n"
                 "  git clone https://github.com/fashn-AI/fashn-vton-1.5.git\n"
-                "  pip install -e ./fashn-vton-1.5\n"
-                "  python ./fashn-vton-1.5/scripts/download_weights.py --weights-dir "
-                f"{weights}\n"
+                "  pip install -e ./fashn-vton-1.5 --no-deps   # 它钉的是 onnxruntime-gpu，"
+                "纯 CPU 别让它装\n"
+                "  pip install onnxruntime fashn-human-parser  # CPU 推理\n"
+                "  python ./fashn-vton-1.5/scripts/download_weights.py "
+                f"--weights-dir {weights}\n"
+                "国内网络：HF 直连会被代理破坏（缺 X-Repo-Commit 头），设 "
+                "HF_ENDPOINT=https://hf-mirror.com；\n"
+                "或直接从 ModelScope 的 fashn-ai/fashn-vton-1.5 与 fashn-ai/DWPose 取文件。\n"
                 "注意：fashn_vton 不在 PyPI 上，必须从仓库以可编辑模式安装。"
             )
 

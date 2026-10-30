@@ -87,7 +87,50 @@ HTTP 404  {"code":"InvalidParameter","message":"Model not exist."}
 教训：**「下载不到」要先分清是「网络不通」还是「环境不兼容」**。本次的 LHM 是后者，
 而上一次把前者当成了主因。
 
-## 五、所以现在能跑什么
+## 五、试穿：绕开「账号未开通」的另一条路（本地权重，已在 py3.14 上装通）
+
+试穿不必等账号开通——FASHN VTON v1.5 权重是 Apache-2.0，且它的要求比 LHM 宽松
+（`requires-python >=3.10`，只依赖 torch / onnxruntime，没有 `chumpy`、`decord`
+这类停更包）。实测在 **Python 3.14.5 上装通并通过导入验证**：
+
+```bash
+# 1) CPU 版 torch（126.7 MB；CUDA 版 2.4 GB，8 GB 显存 + 磁盘紧张时先用 CPU）
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# 2) 上游包本体：--no-deps 是必须的，它钉的是 onnxruntime-gpu
+git clone https://github.com/fashn-AI/fashn-vton-1.5.git
+pip install -e ./fashn-vton-1.5 --no-deps
+pip install onnxruntime fashn-human-parser
+
+# 3) 权重：ModelScope 单连接 2.5 MB/s，HF 直连 0.15 MB/s
+#    model.safetensors 1.94 GB + yolox_l.onnx 217 MB + dw-ll_ucoco_384.onnx 134 MB
+python scripts/pdl.py "https://modelscope.cn/api/v1/models/fashn-ai/fashn-vton-1.5/repo?Revision=master&FilePath=model.safetensors" weights/fashn_vton/model.safetensors
+python scripts/pdl.py "https://modelscope.cn/api/v1/models/fashn-ai/DWPose/repo?Revision=master&FilePath=yolox_l.onnx" weights/fashn_vton/dwpose/yolox_l.onnx
+python scripts/pdl.py "https://modelscope.cn/api/v1/models/fashn-ai/DWPose/repo?Revision=master&FilePath=dw-ll_ucoco_384.onnx" weights/fashn_vton/dwpose/dw-ll_ucoco_384.onnx
+```
+
+三个坑，都是实测踩出来的：
+
+1. **HF 直连会被中间代理破坏**——返回缺 `X-Repo-Commit` 头，
+   `huggingface_hub` 直接报「不像 Hugging Face 端点」。设
+   `HF_ENDPOINT=https://hf-mirror.com`，或直接从 ModelScope 取文件。
+2. **并发不是加速而是限流**：ModelScope 上 8 线程实测 0.27 MB/s，
+   单连接 1.17–2.49 MB/s。国内 CDN 按连接限速，多开连接只会互相挤。
+3. **`pip install` 在本机会报 `PermissionError: WinError 5`**——
+   WorkBuddy 的 `sitecustomize` 拦截了 pip 的写权限探测（临时文件删不掉）。
+   加 `--user` 可绕过。
+
+### 但 CPU 跑不动：实测每步 5 分 25 秒
+
+整条链路在 CPU 上确实跑起来了（模型加载、DWPose、人体解析、开始采样），
+但采样阶段的实测速度是**每步 325 秒**，30 步需要约 **2 小时 40 分**。
+这个数字决定了 CPU 只能用来验证链路，不能用来出图。
+
+对照：`torch` 的 CUDA 轮子对本机的 cp314 最高只到 `2.14.1+cu126`
+（`2.15.0` 只有 CPU 轮子），配对 `torchvision==0.29.1+cu126`。
+装完约 2.5 GB，4060 上 30 步应按分钟级完成。8 GB 显存够用（模型 1.94 GB BF16）。
+
+## 六、所以现在能跑什么
 
 | 档位 | 现状 | 缺什么 |
 |---|---|---|
