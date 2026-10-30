@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>avatar-tryon · 3D 预览</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0f1419; color: #c9d4e0;
+    font-family: system-ui, -apple-system, "PingFang SC", sans-serif; }
+  #app { width: 100%; height: 100%; display: block; }
+  .hud { position: absolute; left: 16px; top: 16px; font-size: 13px; line-height: 1.7;
+    background: rgba(15, 20, 25, .72); padding: 12px 16px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.08); max-width: 320px; }
+  .hud b { color: #fff; font-weight: 500; }
+  .hud code { color: #7fd1a8; font-size: 12px; }
+  .hint { position: absolute; right: 16px; bottom: 16px; font-size: 12px; color: #6b7a89; }
+</style>
+</head>
+<body>
+<div class="hud">
+  <b>avatar-tryon 预览</b><br>
+  拖动旋转 · 滚轮缩放<br>
+  用法：<code>?model=path/to/avatar.glb</code>
+</div>
+<div class="hint">模型由本地流水线生成</div>
+<canvas id="app"></canvas>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const canvas = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0f1419);
+
+const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(0, 1.0, 4.2);
+
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 0.95, 0);
+controls.enableDamping = true;
+controls.minDistance = 1.2;
+controls.maxDistance = 12;
+
+// 三点布光：人脸朝向 -Z，主光在右前上方
+const key = new THREE.DirectionalLight(0xffffff, 2.4);
+key.position.set(2.2, 3.2, 2.6);
+const fill = new THREE.DirectionalLight(0xbcd4ff, 0.9);
+fill.position.set(-2.6, 1.4, 1.2);
+const rim = new THREE.DirectionalLight(0xffffff, 1.1);
+rim.position.set(0, 2.0, -3.0);
+scene.add(key, fill, rim, new THREE.AmbientLight(0xffffff, 0.35));
+
+const grid = new THREE.GridHelper(8, 16, 0x2a3542, 0x1c242e);
+scene.add(grid);
+
+const params = new URLSearchParams(location.search);
+const modelUrl = params.get('model');
+
+if (modelUrl) {
+  new GLTFLoader().load(modelUrl, (gltf) => {
+    const root = gltf.scene;
+    // 统一尺度：以 1.7m 身高为基准，把模型缩放并贴地
+    const box = new THREE.Box3().setFromObject(root);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const s = 1.7 / (size.y || 1);
+    root.scale.setScalar(s);
+    const box2 = new THREE.Box3().setFromObject(root);
+    root.position.y -= box2.min.y;
+    scene.add(root);
+  }, undefined, (err) => {
+    console.error('模型加载失败', err);
+  });
+} else {
+  // 没有传模型时给一个比例参考，避免空白场景
+  const ghost = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.22, 1.1, 8, 16),
+    new THREE.MeshStandardMaterial({ color: 0x243140, roughness: 0.9 })
+  );
+  ghost.position.y = 0.78;
+  scene.add(ghost);
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+renderer.setAnimationLoop(() => {
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

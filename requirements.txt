@@ -1,0 +1,23 @@
+# 核心路径（含 --mock）不需要任何第三方依赖，仅用标准库。
+#
+# 模型推理的依赖随各上游仓库变化很大（torch / xformers / diffusers 版本互相锁定），
+# 因此这里刻意不锁定，避免「装不上」比「跑得慢」更早劝退使用者。
+# 接入具体模型时，请按 docs/model-selection.md 里对应上游仓库的说明安装。
+
+# 拉取权重
+huggingface_hub>=0.24
+
+# 开发与测试
+pytest>=8
+ruff>=0.6
+
+# Web 服务（可选）
+# fastapi>=0.110
+# uvicorn>=0.30
+
+# 模型推理（示例，按需启用）
+# torch>=2.3
+# diffusers>=0.30
+# transformers>=4.44
+# opencv-python>=4.9
+# trimesh>=4.4

@@ -1,0 +1,43 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ---- 模型权重（一律不入库）----
+weights/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.bin
+!assets/samples/*.glb
+
+# ---- 本地配置与密钥 ----
+.env
+.env.*
+!.env.example
+**/models.json
+.workbuddy/
+*.key
+*.pem
+secrets/
+
+# ---- 产物 ----
+outputs/
+runs/
+*.log
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

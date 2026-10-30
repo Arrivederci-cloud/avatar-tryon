@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "avatar-tryon"
+version = "0.1.0"
+description = "单图驱动的 3D 数字人试穿试发流水线：一张全身照生成三视图，再做服装与发型试戴"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "avatar-tryon contributors" }]
+keywords = ["virtual-tryon", "3d-human", "gaussian-splatting", "diffusion", "three.js"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Apache Software License",
+  "Topic :: Scientific/Engineering :: Image Processing",
+]
+# 核心路径（含 mock 模式）零依赖，clone 即可跑测试
+dependencies = []
+
+[project.optional-dependencies]
+weights = ["huggingface_hub>=0.24"]
+api = ["fashn>=0.9"]
+dev = ["pytest>=8", "ruff>=0.6"]
+web = ["fastapi>=0.110", "uvicorn>=0.30"]
+
+[project.scripts]
+avatar-tryon = "avatar_tryon.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/avatar_tryon"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
