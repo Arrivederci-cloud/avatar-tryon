@@ -6,6 +6,13 @@
 3. 只从官方渠道拉取。受限模型（SAM License 等）本脚本不代下载，
    需要使用者自己去官方页面接受条款。
 
+国内网络提示（实测，见 docs/environment-gates.md）：
+- HF 直连可能被中间代理破坏（返回缺 X-Repo-Commit 头），先设
+  `HF_ENDPOINT=https://hf-mirror.com`；
+- 单个大文件（GB 级）用 huggingface_hub 容易 429 或极慢，改用
+  `python scripts/pdl.py "<ModelScope 直链>" <目标路径>` 分块断点下载，
+  实测比 SDK 快一个数量级。
+
 用法：
     python scripts/fetch_weights.py --model lhm
     python scripts/fetch_weights.py --model all

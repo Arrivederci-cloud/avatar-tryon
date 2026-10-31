@@ -65,7 +65,8 @@ PYTHONPATH=src python scripts/doctor.py --offline # 不联网，只看本地
 | 档位 | 现状 |
 |---|---|
 | `mock` / `proxy`（含 `--edit-backend api`） | 开箱可跑 |
-| 试穿（aitryon / FASHN） | 需账号开通「AI试衣」或 `FASHN_API_KEY` |
+| 试穿（本地权重，GPU） | **可跑，实测 171 s/张** |
+| 试穿（aitryon / FASHN 托管） | 需账号开通「AI试衣」或 `FASHN_API_KEY` |
 | `real`（LHM 重建） | 需独立的 Python 3.12 环境 + CUDA torch + 18.8 GB 权重 |
 
 原因、实测数字与复核方法见 **[docs/environment-gates.md](docs/environment-gates.md)**。
@@ -100,11 +101,15 @@ UV 覆盖率从早期实现的真实 **44.7%** 降到 **14.5%–23.0%**——数
 PYTHONPATH=src python -m avatar_tryon.cli --image photo.jpg --height 170 --engine proxy
 ```
 
-真实推理需要先拉权重（权重不入库，见 `docs/model-selection.md`）：
+本地试穿（FASHN VTON v1.5 权重，Apache-2.0）已实测可用——RTX 4060 上
+171 秒一张（含模型加载），采样 30 步仅 49 秒；CPU 每步 325 秒，只够验证链路。
+完整步骤与坑（镜像选择、`--no-deps`、`--user` 绕 pip 报错）见
+[docs/environment-gates.md](docs/environment-gates.md)：
 
 ```bash
-pip install -e ".[weights]"
-python scripts/fetch_weights.py --model fashn_vton
+HF_ENDPOINT=https://hf-mirror.com python scripts/fetch_weights.py --model fashn_vton
+PYTHONPATH=src python scripts/smoke_vton.py --backend local \
+    --person photo.jpg --garment tee.jpg
 PYTHONPATH=src python -m avatar_tryon.cli --image photo.jpg --height 170 \
     --garment tee_001 --garment-image tee.jpg --vton-backend local
 ```
@@ -115,7 +120,7 @@ PYTHONPATH=src python -m avatar_tryon.cli --image photo.jpg --height 170 \
 |---|---|---|---|
 | 侧面/背面视图 | 生成 API | `--views-backend api`（需 `DASHSCOPE_API_KEY`） | 比软件渲染多一层真实纹理来源 |
 | 服装试穿 | 托管接口 | `--vton-backend api`（需 `FASHN_API_KEY`） | 最快验证效果，按次计费 |
-| 服装试穿 | 本地权重 | `--vton-backend local` | 私有化、批量、无按次成本 |
+| 服装试穿 | 本地权重 | `--vton-backend local` | **已实测可用**；私有化、批量、无按次成本 |
 | 纹理补全 | 托管接口 | `--edit-backend api`（需 `DASHSCOPE_API_KEY`） | 已实测可用（见下），按量计费 |
 | 纹理补全 | 本地权重 | `--edit-backend local` | 私有化、批量 |
 

@@ -126,19 +126,42 @@ python scripts/pdl.py "https://modelscope.cn/api/v1/models/fashn-ai/DWPose/repo?
 但采样阶段的实测速度是**每步 325 秒**，30 步需要约 **2 小时 40 分**。
 这个数字决定了 CPU 只能用来验证链路，不能用来出图。
 
-对照：`torch` 的 CUDA 轮子对本机的 cp314 最高只到 `2.14.1+cu126`
-（`2.15.0` 只有 CPU 轮子），配对 `torchvision==0.29.1+cu126`。
-装完约 2.5 GB，4060 上 30 步应按分钟级完成。8 GB 显存够用（模型 1.94 GB BF16）。
+### GPU 路线：装 cu126 轮子后 49 秒出图（已验证）
+
+cp314 的 CUDA 轮子最高到 `torch 2.14.1+cu126`（`2.15.0` 只有 CPU 版），
+配对 `torchvision==0.29.1+cu126`。装完实测（RTX 4060 Laptop 8 GB，bf16）：
+
+| 阶段 | CPU（2.15.0+cpu） | GPU（2.14.1+cu126） |
+|---|---|---|
+| 采样 30 步 | 每步 325 s，共 ~2.6 h | 每步 **1.64 s**，共 **49 s** |
+| 端到端（含模型加载/姿态/解析） | 不可用 | **171 s** |
+| 产出 | — | 576×864，换装自然、人脸姿态保留 |
+
+CUDA 轮子 2.62 GB，`pip` 经代理下载会假死（临时文件长时间 0 字节），
+用 `scripts/pdl.py` 断点直取即可：
+
+```bash
+python scripts/pdl.py "https://mirrors.aliyun.com/pytorch-wheels/cu126/torch-2.14.1%2Bcu126-cp314-cp314-win_amd64.whl" outputs/torch-2.14.1+cu126-cp314-cp314-win_amd64.whl 4
+pip install --force-reinstall --no-deps "outputs/torch-2.14.1+cu126-cp314-cp314-win_amd64.whl"
+pip install --force-reinstall --no-deps "torchvision==0.29.1+cu126" --index-url https://download.pytorch.org/whl/cu126
+```
+
+镜像带宽实测：阿里云 1.25 MB/s（4 线程聚合 ~2 MB/s）、上交 0.93、
+官方 0.32。wheel 文件名必须保持规范名，`pip install` 才认。
+
+验证命令与判定标准见 `scripts/smoke_vton.py`（产出与原图差异 < 2/255 判为假成功）。
+DWPose 的 onnx 在 CPU 上跑几秒即可，无需为它装 onnxruntime-gpu。
 
 ## 六、所以现在能跑什么
 
 | 档位 | 现状 | 缺什么 |
 |---|---|---|
 | `mock` | 可跑 | 无 |
-| `proxy`（本地基线） | 可跑，34 → 46 个测试覆盖 | 无 |
+| `proxy`（本地基线） | 可跑，46 个测试覆盖 | 无 |
 | `proxy --edit-backend api` | 可跑（wanx 真掩码端点） | 已具备 |
 | `proxy --views-backend api` | 可跑 | 已具备 |
-| 试穿（aitryon / FASHN） | **不可跑** | 账号开通 或 `FASHN_API_KEY` |
-| `real`（LHM 重建） | **不可跑** | Python 3.12 环境 + CUDA torch + 18.8 GB 权重 + `gsplat` 编译 |
+| **试穿（本地权重，GPU）** | **可跑，实测 171 s/张，出图质量良好** | 已具备 |
+| 试穿（aitryon / FASHN 托管） | 不可跑 | 账号开通 或 `FASHN_API_KEY` |
+| `real`（LHM 重建） | 不可跑 | Python 3.12 环境 + CUDA torch + 18.8 GB 权重 + `gsplat` 编译 |
 
 把这张表和 `doctor` 的输出对齐，就不会再出现「代码明明写完了却跑不起来」的困惑。
