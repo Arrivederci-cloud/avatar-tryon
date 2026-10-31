@@ -114,6 +114,30 @@ PYTHONPATH=src python -m avatar_tryon.cli --image photo.jpg --height 170 \
     --garment tee_001 --garment-image tee.jpg --vton-backend local
 ```
 
+### 候选对比：一次看几件
+
+单次试穿只回答「这件行不行」，挑选真实的问题是「这几件里哪件更好」。
+`--compare` 接受多个文件或目录，逐件渲染后拼成一张对比图 + 一张状态表：
+
+```bash
+PYTHONPATH=src python -m avatar_tryon.cli --image photo.jpg --height 170 \
+    --engine proxy --compare wardrobe/ --compare-backend local
+```
+
+三条约定（也是三条诚实的边界）：
+
+- **类型由文件名前缀决定，不猜内容**：`hair_*`/`hairstyle_*` 作发型参考，
+  `worn_*`/`ref_*`/`look_*` 是模特上身参照图（只登记不渲染，和你的试穿结果并排看），
+  其余一律当衣服。猜错了用户比的就是错的东西，所以宁可要求改名。
+- **每件衣服的试穿类别随候选走**：默认 `--compare-category auto` 按文件名
+  关键词判断（`jeans`→bottoms、`tee`→tops），一批里混上衣和裤子不会互相污染；
+  判断不出按 tops 并在表格里注明，也可以 `--compare-category bottoms` 整批指定。
+- **不产出「推荐指数」**：换装好不好看是审美判断，像素差之类的代理指标
+  排序会给出看似科学、实则误导的结论。工具只把候选摆齐、把状态/耗时/
+  与原图差异标清楚，**排序交给你**。
+
+单个候选失败（缺权重、坏图）只记一行状态，不影响其余候选和整张对比图。
+
 ### 试穿与纹理补全：两条后端
 
 | 环节 | 后端 | 命令 | 适用 |

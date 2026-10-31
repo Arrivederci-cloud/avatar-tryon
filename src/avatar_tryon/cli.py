@@ -13,7 +13,8 @@ import sys
 from pathlib import Path
 
 from . import config
-from .pipeline import orchestrator
+from .models import registry
+from .pipeline import compare, orchestrator
 from .utils.image import write_blank_png
 
 
@@ -46,7 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--views-backend",
         choices=("api", "local"),
         default="local",
-        help="??????api ????????/????? DASHSCOPE_API_KEY??local ? LHM",
+        help="三视图后端：api 用托管接口（需 DASHSCOPE_API_KEY），local 用 LHM",
     )
     p.add_argument(
         "--edit-backend",
@@ -56,7 +57,65 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--catalog", type=Path, default=config.GARMENT_CATALOG)
     p.add_argument("--hairstyle", type=Path, default=None, help="参考发型图")
+    p.add_argument(
+        "--compare",
+        type=Path,
+        nargs="+",
+        default=None,
+        metavar="PATH",
+        help=(
+            "候选对比：传入多个文件或目录，逐个渲染后拼成一张对比图。"
+            "类型由文件名前缀决定——hair_*/hairstyle_* 作发型，"
+            "worn_*/ref_*/look_* 作模特上身参照图，其余当衣服"
+        ),
+    )
+    p.add_argument(
+        "--compare-backend",
+        choices=("local", "api"),
+        default="local",
+        help="对比时试穿用的后端：local 用本地权重（GPU 上约 3 分钟/件），api 用托管接口",
+    )
+    p.add_argument("--compare-cols", type=int, default=4, help="对比图每行几个候选")
+    p.add_argument(
+        "--compare-category",
+        choices=(*compare.CATEGORIES, compare.CATEGORY_AUTO),
+        default=compare.CATEGORY_AUTO,
+        help="对比时每件衣服的试穿类别；auto 按文件名关键词逐件判断（默认）",
+    )
+    p.add_argument("--hair-color", type=str, default=None, help="发型迁移的目标发色（可选）")
     return p
+
+
+def _run_compare(args, engine: str | None, out_dir: Path) -> compare.CompareReport:
+    """按档位挑后端，然后把候选逐个渲染并拼对比图。
+
+    后端只在「构造」阶段出错时才降级为 None——那样每个候选会各自记一条
+    not_wired，用户仍能看到其余候选的结果，而不是整轮失败。
+    """
+    engine_name = engine or ("mock" if args.mock else "real")
+    vton = hair = None
+    try:
+        vton = registry.build_vton(
+            "fashn_vton", args.weights_dir, engine_name, backend=args.compare_backend
+        )
+    except (KeyError, ValueError):
+        vton = None
+    try:
+        hair = registry.build_hair("hairfastgan", args.weights_dir, engine_name)
+    except (KeyError, ValueError):
+        hair = None
+
+    candidates = compare.discover(args.compare)
+    return compare.run(
+        args.image,
+        candidates,
+        out_dir / "compare",
+        vton=vton,
+        hair=hair,
+        category=args.compare_category,
+        hair_color=args.hair_color,
+        cols=args.compare_cols,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -88,6 +147,8 @@ def main(argv: list[str] | None = None) -> int:
         views_backend=args.views_backend,
     )
 
+    report = _run_compare(args, engine, result.out_dir) if args.compare else None
+
     print(json.dumps({
         "ok": result.ok,
         "stages": result.stages,
@@ -95,7 +156,14 @@ def main(argv: list[str] | None = None) -> int:
         "warnings": result.warnings,
         "errors": result.errors,
         "result_json": str(result.out_dir / "result.json"),
+        "compare": report.as_dict() if report else None,
     }, ensure_ascii=False, indent=2))
+
+    if report is not None:
+        print("\n候选对比（排序交给你，工具只把候选摆齐）：")
+        print(report.table())
+        if report.sheet:
+            print(f"对比图：{report.sheet}")
 
     return 0 if result.ok else 1
 
