@@ -187,6 +187,10 @@ def test_fill_pixels_or_flags_background() -> None:
 
 
 def test_complete_uv_end_to_end_writes_mask(tmp_path: Path) -> None:
+    # 本测试断言的是「烘焙产物落盘」，而烘焙依赖 Pillow（可选依赖）。
+    # 无 Pillow 时 _complete_uv 返回 (None, None, {})，跳过是正确行为——
+    # CI 的 mock 环境就是无 Pillow 的，这条 skip 不是偷懒。
+    pytest.importorskip("PIL.Image")
     photo = _photo(tmp_path)
     res = orchestrator.run(
         image=photo, height_cm=170, out_dir=tmp_path / "out",
@@ -198,8 +202,6 @@ def test_complete_uv_end_to_end_writes_mask(tmp_path: Path) -> None:
     assert mask.exists()
     assert image_size(mask) == (three_view.UV_SIZE, three_view.UV_SIZE)
     assert res.artifacts["uv_mask"] == str(mask)
-    # 有 Pillow 时还应产出投影纹理与其 inpaint 结果
-    pytest.importorskip("PIL.Image")
     assert (tmp_path / "out" / "uv" / "uv_multiview.png").exists()
     assert (tmp_path / "out" / "uv" / "inpaint" / "uv_multiview_filled.png").exists()
 
